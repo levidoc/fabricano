@@ -604,32 +604,33 @@
                 </div>
                 <div>
                     <p class="text-xs font-bold uppercase tracking-widest text-frost mb-2">Delivery</p>
-                    <p class="text-ice">Local drivers from your area at a <br> R25 flat fee</p>
+                    <p class="text-ice">Montana, Pretoria only<br>R25 flat fee</p>
                 </div>
             </div>
 
-            <form onsubmit="event.preventDefault(); alert('Message sent! We\'ll get back to you.');"
+            <form onsubmit="handleContactSubmit(event)"
                 class="bg-surface border border-edge p-8 rounded-2xl space-y-4">
                 <div class="grid grid-cols-2 gap-4">
-                    <input type="text" required placeholder="Name"
+                    <input type="text" id="contact-name" required placeholder="Name"
                         class="w-full bg-deep border border-edge p-4 rounded-xl text-ice outline-none focus:border-frost transition-colors text-sm">
-                    <input type="tel" placeholder="Phone"
+                    <input type="tel" id="contact-phone" placeholder="Phone"
                         class="w-full bg-deep border border-edge p-4 rounded-xl text-ice outline-none focus:border-frost transition-colors text-sm">
                 </div>
-                <input type="email" required placeholder="Email"
+                <input type="email" id="contact-email" required placeholder="Email"
                     class="w-full bg-deep border border-edge p-4 rounded-xl text-ice outline-none focus:border-frost transition-colors text-sm">
-                <select
+                <select id="contact-subject"
                     class="w-full bg-deep border border-edge p-4 rounded-xl text-frost outline-none focus:border-frost transition-colors text-sm">
                     <option>General Inquiry</option>
                     <option>Order Support</option>
                     <option>Press & Media</option>
                     <option>Feedback</option>
                 </select>
-                <textarea rows="5" required placeholder="Your message..."
+                <textarea id="contact-message" rows="5" required placeholder="Your message..."
                     class="w-full bg-deep border border-edge p-4 rounded-xl text-ice outline-none focus:border-frost transition-colors text-sm resize-none"></textarea>
-                <button
+                <button id="contact-submit"
                     class="w-full bg-ice text-void font-bold py-4 rounded-full hover:bg-frost transition-colors text-sm active:scale-[0.98]">Send
                     Message</button>
+                <p id="contact-status" class="text-xs text-frost min-h-5"></p>
             </form>
         </div>
     </div>
@@ -644,8 +645,8 @@
             </div>
             <div class="bg-surface border border-edge p-8 rounded-2xl">
                 <h3 class="text-lg font-bold text-ice mb-2">Do you deliver?</h3>
-                <p class="text-frost text-sm">Yes. UberEats, Mr D, and our own riders within a 5km radius. R25 flat
-                    delivery fee for direct orders.</p>
+                <p class="text-frost text-sm">Yes. Direct delivery is currently available in Montana, Pretoria only,
+                    with a R25 flat delivery fee.</p>
             </div>
             <div class="bg-surface border border-edge p-8 rounded-2xl">
                 <h3 class="text-lg font-bold text-ice mb-2">Can I book for a private event?</h3>
@@ -697,14 +698,20 @@
     <!-- ===== ACCOUNT VIEW ===== -->
     <div id="view-account" class="view hidden pt-40 pb-40 px-6 max-w-lg mx-auto text-center">
         <h1 class="font-serif text-5xl font-custom text-ice mb-4">Welcome</h1>
-        <p class="text-frost mb-10">Sign in to track orders and earn loyalty points.</p>
+        <p class="text-frost mb-10">Use your account to order again and follow every delivery.</p>
         <div class="bg-surface border border-edge p-8 rounded-2xl">
+            <div class="flex gap-4 border-b border-edge mb-6">
+                <button id="login-tab" onclick="setAccountMode('login')" class="text-ice font-bold border-b-2 border-ice pb-3 text-sm">Sign In</button>
+                <button id="register-tab" onclick="setAccountMode('register')" class="text-frost pb-3 text-sm">Create Account</button>
+            </div>
+            <input type="text" id="account-name" placeholder="Full Name" class="hidden w-full bg-deep border border-edge p-4 rounded-xl text-ice outline-none focus:border-frost transition-colors mb-4 text-sm">
             <input type="email" id="login-email" placeholder="Email Address"
                 class="w-full bg-deep border border-edge p-4 rounded-xl text-ice outline-none focus:border-frost transition-colors mb-4 text-sm">
-            <button onclick="handleLogin()"
-                class="w-full bg-ice text-void font-bold py-4 rounded-full hover:bg-frost transition-colors mb-4 text-sm active:scale-[0.98]">Sign
-                In</button>
-            <p class="text-[10px] text-frost uppercase tracking-widest">Secure 1-click access</p>
+            <input type="password" id="login-password" placeholder="Password" minlength="8" required
+                class="w-full bg-deep border border-edge p-4 rounded-xl text-ice outline-none focus:border-frost transition-colors mb-4 text-sm">
+            <button id="account-submit" onclick="handleAccountSubmit()"
+                class="w-full bg-ice text-void font-bold py-4 rounded-full hover:bg-frost transition-colors mb-4 text-sm active:scale-[0.98]">Sign In</button>
+            <p id="account-message" class="text-xs text-frost min-h-5"></p>
         </div>
     </div>
 
@@ -732,6 +739,16 @@
                 <p class="text-[10px] font-bold uppercase tracking-widest text-frost mb-2">Status</p>
                 <p class="font-serif text-4xl font-custom text-ice">Regular</p>
             </div>
+        </div>
+        <div class="flex justify-between items-end mb-6">
+            <div>
+                <p class="text-xs font-bold uppercase tracking-widest text-frost mb-2">Your orders</p>
+                <h2 class="font-serif text-3xl font-custom text-ice">Order history</h2>
+            </div>
+            <button onclick="loadAccountOrders()" class="text-sm text-frost hover:text-ice">Refresh</button>
+        </div>
+        <div id="dash-orders-list" class="space-y-4 mb-16">
+            <p class="text-frost">Loading orders...</p>
         </div>
         <div class="bg-surface border border-edge p-8 rounded-2xl">
             <h3 class="text-xs font-bold uppercase tracking-widest text-frost mb-6">Quick Links</h3>
@@ -838,8 +855,9 @@
                     <label class="block text-xs font-bold uppercase tracking-widest text-frost mb-3">Delivery</label>
                     <input type="tel" id="co-phone" required placeholder="Phone Number"
                         class="w-full bg-deep border border-edge p-4 rounded-xl text-ice outline-none focus:border-frost transition-colors mb-4 text-sm">
-                    <textarea id="co-address" required rows="3" placeholder="Delivery Address"
+                    <textarea id="co-address" required rows="3" placeholder="Delivery address in Montana, Pretoria"
                         class="w-full bg-deep border border-edge p-4 rounded-xl text-ice outline-none focus:border-frost transition-colors text-sm resize-none"></textarea>
+                    <p class="text-xs text-frost">Direct delivery is currently available in Montana, Pretoria only.</p>
                 </div>
 
                 <div class="border-t border-edge pt-6 space-y-2 text-sm">
@@ -932,7 +950,10 @@
             STORE_NAME: 'We Dont Eats',
             CURRENCY: 'R',
             FREE_SHIPPING_THRESHOLD: 500,
-            SHIPPING_COST: 25
+            SHIPPING_COST: 25,
+            DELIVERY_AREA: 'Montana, Pretoria',
+            DISCORD_CONTACT_WEBHOOK: 'https://discord.com/api/webhooks/1550443506353573919/gmFKxr54WnHmkuU_Hbxm5pzje_LEIZPxnIccJ-kpabTgbLBQOG4mjKvqzc0XYGuPeipc',
+            DISCORD_ORDER_WEBHOOK: 'https://discord.com/api/webhooks/1550443506353573919/gmFKxr54WnHmkuU_Hbxm5pzje_LEIZPxnIccJ-kpabTgbLBQOG4mjKvqzc0XYGuPeipc'
         };
 
         // API
@@ -961,12 +982,16 @@
                 return data;
             },
             async get(ep, params = {}) {
-                return this.request(this.buildUrl(ep, params), { headers: { 'X-API-Key': CONFIG.API_KEY } });
+                const headers = { 'X-API-Key': CONFIG.API_KEY };
+                if (userSession?.token) headers.Authorization = `Bearer ${userSession.token}`;
+                return this.request(this.buildUrl(ep, params), { headers });
             },
             async post(ep, body = {}) {
+                const headers = { 'Content-Type': 'application/json', 'X-API-Key': CONFIG.API_KEY };
+                if (userSession?.token) headers.Authorization = `Bearer ${userSession.token}`;
                 return this.request(this.buildUrl(ep), {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-API-Key': CONFIG.API_KEY },
+                    headers,
                     body: JSON.stringify(body)
                 });
             },
@@ -974,6 +999,13 @@
             async getProduct(id) { const d = await this.get('product', { id }); return d.success ? d.data : null; },
             async getCategories() { const d = await this.get('categories'); return d.success ? d.data : []; },
             async searchProducts(q) { const d = await this.get('search', { q }); return d.success ? d.data : []; },
+            async getOrders(email) { const d = await this.get('orders', { email }); return d.success ? d.data : []; },
+            async registerAccount(details) {
+                return this.post('customer_register', details);
+            },
+            async loginAccount(credentials) {
+                return this.post('customer_login', credentials);
+            },
             async createCart() { const d = await this.post('cart_create'); return d.success ? d.data : null; },
             async getCart(cid) { const d = await this.get('cart', { cart_id: cid }); return d.success ? d.data : null; },
             async addToCart(cid, pid, qty = 1) { return this.post('cart_add', { cart_id: cid, product_id: pid, quantity: qty }); },
@@ -1002,6 +1034,64 @@
 
         function writeCache(key, value) {
             try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { console.warn('Catalog cache unavailable:', e); }
+        }
+
+        async function notifyDiscord(webhookUrl, content, embeds = []) {
+            if (!webhookUrl) {
+                console.warn('Discord webhook is not configured.');
+                return false;
+            }
+            const response = await fetch(webhookUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content, embeds })
+            });
+            if (!response.ok) throw new Error(`Discord notification failed (${response.status}).`);
+            return true;
+        }
+
+        function setContactStatus(message, isError = false) {
+            const element = document.getElementById('contact-status');
+            element.textContent = message;
+            element.className = `text-xs min-h-5 ${isError ? 'text-red-400' : 'text-frost'}`;
+        }
+
+        async function handleContactSubmit(event) {
+            event.preventDefault();
+            const submit = document.getElementById('contact-submit');
+            submit.disabled = true;
+            setContactStatus('Sending...');
+            const contact = {
+                name: document.getElementById('contact-name').value.trim(),
+                phone: document.getElementById('contact-phone').value.trim(),
+                email: document.getElementById('contact-email').value.trim(),
+                subject: document.getElementById('contact-subject').value,
+                message: document.getElementById('contact-message').value.trim()
+            };
+            try {
+                await notifyDiscord(CONFIG.DISCORD_CONTACT_WEBHOOK, '', [{
+                    title: `New contact message: ${contact.subject}`,
+                    color: 48863,
+                    fields: [
+                        { name: 'Name', value: contact.name, inline: true },
+                        { name: 'Email', value: contact.email, inline: true },
+                        { name: 'Phone', value: contact.phone || 'Not provided', inline: true },
+                        { name: 'Message', value: contact.message }
+                    ],
+                    timestamp: new Date().toISOString()
+                }]);
+                event.target.reset();
+                setContactStatus(CONFIG.DISCORD_CONTACT_WEBHOOK ? 'Message sent.' : 'Webhook is not configured, so the message was not sent.');
+            } catch (error) {
+                console.error('Contact webhook error:', error);
+                setContactStatus(error.message, true);
+            } finally {
+                submit.disabled = false;
+            }
+        }
+
+        function isMontanaAddress(address) {
+            return /montana/i.test(address) && /pretoria/i.test(address);
         }
 
         async function loadCatalog() {
@@ -1038,6 +1128,7 @@
             if (view === 'menu' && document.getElementById('menu-grid').children.length <= 1) loadProducts('menu');
             if (view === 'home') loadFeatured();
             if (view === 'search') document.getElementById('search-input').focus();
+            if (view === 'dashboard') loadAccountOrders();
         }
 
         function openMenu() { document.getElementById('myNav').style.width = '100%'; }
@@ -1249,11 +1340,18 @@
         // CHECKOUT
         function openCheckout() {
             if (!cartData.items || cartData.items.length === 0) return alert('Bag is empty.');
+            if (!userSession) {
+                closeCheckout();
+                navigate('account');
+                setAccountMessage('Sign in or create an account before checking out.', true);
+                return;
+            }
             const sub = parseFloat(cartData.subtotal) || 0;
             const ship = sub >= CONFIG.FREE_SHIPPING_THRESHOLD ? 0 : CONFIG.SHIPPING_COST;
             const disc = currentDiscount ? sub * (currentDiscount.percent / 100) : 0;
 
             document.getElementById('co-subtotal').textContent = CONFIG.CURRENCY + ' ' + sub.toFixed(0);
+            document.getElementById('co-email').value = userSession.email;
             document.getElementById('co-shipping').textContent = ship === 0 ? 'FREE' : CONFIG.CURRENCY + ' ' + ship;
             if (currentDiscount) {
                 document.getElementById('co-discount-row').classList.remove('hidden');
@@ -1268,22 +1366,49 @@
 
         async function handleCheckout(e) {
             e.preventDefault();
-            const result = await api.placeOrder({
-                cart_id: cartId,
-                customer_name: document.getElementById('co-name').value,
-                customer_email: document.getElementById('co-email').value,
-                customer_phone: document.getElementById('co-phone').value,
-                shipping_address: document.getElementById('co-address').value,
-                discount_code: currentDiscount ? currentDiscount.code : null
-            });
-            if (result.success) {
+            const address = document.getElementById('co-address').value.trim();
+            if (!isMontanaAddress(address)) {
+                alert('Direct delivery is currently available in Montana, Pretoria only.');
+                return;
+            }
+            try {
+                const result = await api.placeOrder({
+                    cart_id: cartId,
+                    customer_name: document.getElementById('co-name').value,
+                    customer_email: userSession.email,
+                    customer_phone: document.getElementById('co-phone').value,
+                    shipping_address: address,
+                    delivery_area: CONFIG.DELIVERY_AREA,
+                    discount_code: currentDiscount ? currentDiscount.code : null
+                });
+                try {
+                    await notifyDiscord(CONFIG.DISCORD_ORDER_WEBHOOK, '', [{
+                        title: 'New order received',
+                        color: 16744192,
+                        fields: [
+                            { name: 'Customer', value: document.getElementById('co-name').value, inline: true },
+                            { name: 'Email', value: userSession.email, inline: true },
+                            { name: 'Phone', value: document.getElementById('co-phone').value, inline: true },
+                            { name: 'Delivery area', value: CONFIG.DELIVERY_AREA, inline: true },
+                            { name: 'Address', value: address },
+                            { name: 'Total', value: document.getElementById('co-total').textContent, inline: true },
+                            { name: 'Items', value: cartData.items.map(item => `${item.quantity} x ${item.name}`).join('\n').slice(0, 1024) || 'Cart items unavailable' }
+                        ],
+                        timestamp: new Date().toISOString()
+                    }]);
+                } catch (notificationError) {
+                    console.error('Order webhook error:', notificationError);
+                }
                 alert('Order placed! Check your email for confirmation.');
                 cartId = null; localStorage.removeItem('vm_cart_id');
                 cartData = { items: [], item_count: 0, subtotal: 0 };
                 currentDiscount = null;
                 renderCart(); updateCartDot();
                 closeCheckout(); navigate('home');
-            } else { alert('Something went wrong. Try again.'); }
+            } catch (error) {
+                console.error('Checkout API error:', error);
+                alert(error.message || 'Something went wrong. Try again.');
+            }
         }
 
         // SEARCH
@@ -1302,13 +1427,50 @@
         }
 
         // ACCOUNT
-        function handleLogin() {
+        let accountMode = 'login';
+
+        function setAccountMode(mode) {
+            accountMode = mode;
+            const register = mode === 'register';
+            document.getElementById('account-name').classList.toggle('hidden', !register);
+            document.getElementById('login-tab').className = register ? 'text-frost pb-3 text-sm' : 'text-ice font-bold border-b-2 border-ice pb-3 text-sm';
+            document.getElementById('register-tab').className = register ? 'text-ice font-bold border-b-2 border-ice pb-3 text-sm' : 'text-frost pb-3 text-sm';
+            document.getElementById('account-submit').textContent = register ? 'Create Account' : 'Sign In';
+            document.getElementById('account-message').textContent = '';
+        }
+
+        function setAccountMessage(message, isError = false) {
+            const element = document.getElementById('account-message');
+            element.textContent = message;
+            element.className = `text-xs min-h-5 ${isError ? 'text-red-400' : 'text-frost'}`;
+        }
+
+        async function handleAccountSubmit() {
             const email = document.getElementById('login-email').value.trim();
-            if (!email) return alert('Enter your email.');
-            userSession = { email };
-            localStorage.setItem('wde_session', JSON.stringify(userSession));
-            document.getElementById('dash-email').textContent = email;
-            navigate('dashboard');
+            const password = document.getElementById('login-password').value;
+            const name = document.getElementById('account-name').value.trim();
+            if (!email || !password || (accountMode === 'register' && !name)) {
+                setAccountMessage('Complete all required fields.', true);
+                return;
+            }
+            setAccountMessage(accountMode === 'register' ? 'Creating your account...' : 'Signing you in...');
+            try {
+                const response = accountMode === 'register'
+                    ? await api.registerAccount({ name, email, password })
+                    : await api.loginAccount({ email, password });
+                const account = response.data || response.customer || response.user || {};
+                userSession = {
+                    email: account.email || email,
+                    name: account.name || name,
+                    token: response.token || response.access_token || account.token || null
+                };
+                localStorage.setItem('wde_session', JSON.stringify(userSession));
+                document.getElementById('dash-email').textContent = userSession.email;
+                navigate('dashboard');
+            } catch (error) {
+                console.error('Account API error:', error);
+                setAccountMessage(error.message, true);
+            }
         }
 
         function handleLogout() {
@@ -1320,6 +1482,67 @@
         function handleAccountClick() {
             if (userSession) { document.getElementById('dash-email').textContent = userSession.email; navigate('dashboard'); }
             else navigate('account');
+        }
+
+        async function loadAccountOrders() {
+            if (!userSession) return;
+            const list = document.getElementById('dash-orders-list');
+            if (!list) return;
+            list.innerHTML = '<p class="text-frost">Loading orders...</p>';
+            try {
+                const orders = await api.getOrders(userSession.email);
+                renderAccountOrders(Array.isArray(orders) ? orders : (orders.orders || []));
+            } catch (error) {
+                console.error('Order history API error:', error);
+                list.innerHTML = `<p class="text-red-400">${error.message}</p>`;
+            }
+        }
+
+        function renderAccountOrders(orders) {
+            const list = document.getElementById('dash-orders-list');
+            const total = orders.reduce((sum, order) => sum + (parseFloat(order.total || order.amount) || 0), 0);
+            document.getElementById('dash-orders').textContent = orders.length;
+            document.getElementById('dash-spent').textContent = `${CONFIG.CURRENCY} ${total.toFixed(0)}`;
+            if (!orders.length) {
+                list.innerHTML = '<p class="text-frost">No orders yet. Your next one starts with the menu.</p>';
+                return;
+            }
+            list.innerHTML = orders.map(order => {
+                const status = String(order.status || order.state || 'pending').replace(/_/g, ' ');
+                const items = order.items || order.line_items || [];
+                const itemSummary = items.map(item => `${item.quantity || 1} x ${item.name || item.product_name || 'Item'}`).join(', ');
+                return `<article class="bg-surface border border-edge p-6 rounded-2xl">
+                    <div class="flex flex-wrap justify-between gap-4 mb-4">
+                        <div><p class="text-xs uppercase tracking-widest text-frost">Order ${order.id || order.order_id || ''}</p>
+                        <p class="text-ice font-semibold mt-1">${itemSummary || 'Food order'}</p></div>
+                        <span class="text-neon text-sm font-bold capitalize">${status}</span>
+                    </div>
+                    <div class="flex items-center gap-1 mb-4">${renderDeliveryProgress(status)}</div>
+                    <div class="flex flex-wrap justify-between items-center gap-4 text-sm text-frost">
+                        <span>${order.created_at ? new Date(order.created_at).toLocaleDateString() : 'Recent order'} · ${CONFIG.CURRENCY} ${parseFloat(order.total || order.amount || 0).toFixed(0)}</span>
+                        <button onclick="reorder(${JSON.stringify(items).replace(/\"/g, '&quot;')})" class="text-ice underline underline-offset-4">Reorder</button>
+                    </div>
+                </article>`;
+            }).join('');
+        }
+
+        function renderDeliveryProgress(status) {
+            const stages = ['pending', 'paid', 'packed', 'shipped', 'delivered'];
+            const normalized = status.toLowerCase();
+            const stageIndex = stages.findIndex(stage => normalized.includes(stage));
+            const activeIndex = stageIndex < 0 ? (normalized.includes('cancel') ? -1 : 0) : stageIndex;
+            return stages.map((stage, index) => `<span class="h-1.5 flex-1 rounded-full ${index <= activeIndex ? 'bg-neon' : 'bg-edge'}" title="${stage}"></span>`).join('');
+        }
+
+        async function reorder(items) {
+            if (!items.length) return setAccountMessage('This order has no reusable items.', true);
+            await ensureCart();
+            for (const item of items) {
+                const productId = item.product_id || item.productId || item.id;
+                if (productId) await api.addToCart(cartId, productId, item.quantity || 1);
+            }
+            await refreshCart();
+            toggleCart();
         }
 
         // HASH ROUTING
