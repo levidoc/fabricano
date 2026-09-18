@@ -478,6 +478,26 @@
                     <h3 class="text-xs font-bold uppercase tracking-widest text-ice mb-4">Details</h3>
                     <p id="pdp-desc" class="text-frost leading-relaxed text-sm">...</p>
                 </div>
+                <div class="bg-surface border border-edge p-8 rounded-2xl mt-6">
+                    <div class="flex justify-between items-center mb-5">
+                        <h3 class="text-xs font-bold uppercase tracking-widest text-ice">Customer reviews</h3>
+                        <span id="pdp-review-average" class="text-neon text-sm"></span>
+                    </div>
+                    <div id="pdp-reviews" class="space-y-4 mb-6"></div>
+                    <div id="pdp-review-form" class="border-t border-edge pt-5">
+                        <p class="text-xs text-frost mb-3">Share your experience</p>
+                        <div class="flex gap-2 mb-3" role="radiogroup" aria-label="Rating">
+                            <label class="text-neon cursor-pointer"><input class="sr-only" type="radio" name="review-rating" value="5" checked> ★★★★★</label>
+                            <label class="text-frost cursor-pointer"><input class="sr-only" type="radio" name="review-rating" value="4"> 4 stars</label>
+                            <label class="text-frost cursor-pointer"><input class="sr-only" type="radio" name="review-rating" value="3"> 3 stars</label>
+                            <label class="text-frost cursor-pointer"><input class="sr-only" type="radio" name="review-rating" value="2"> 2 stars</label>
+                            <label class="text-frost cursor-pointer"><input class="sr-only" type="radio" name="review-rating" value="1"> 1 star</label>
+                        </div>
+                        <textarea id="review-text" rows="3" placeholder="What did you think?" class="w-full bg-deep border border-edge p-3 rounded-xl text-ice outline-none focus:border-frost transition-colors text-sm resize-none"></textarea>
+                        <button type="button" onclick="submitProductReview()" class="bg-ice text-void font-bold py-3 px-5 rounded-full mt-3 text-sm">Post Review</button>
+                        <p id="review-status" class="text-xs text-frost mt-3 min-h-4"></p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -1066,7 +1086,9 @@
         // STATE
         const CACHE_KEYS = {
             products: 'ynce_products_v1',
-            categories: 'ynce_categories_v1'
+            categories: 'ynce_categories_v1',
+            orders: 'ynce_orders_v1',
+            reviews: 'ynce_reviews_v1'
         };
         let PRODUCTS = [], CATEGORIES = [];
         let cartData = { items: [], item_count: 0, subtotal: 0 };
@@ -1091,6 +1113,21 @@
 
         function writeCache(key, value) {
             try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { console.warn('Catalog cache unavailable:', e); }
+        }
+
+        function getStoredOrders() {
+            const orders = readCache(CACHE_KEYS.orders, {});
+            return userSession?.email ? (orders[userSession.email.toLowerCase()] || []) : [];
+        }
+
+        function storeOrder(order) {
+            if (!userSession?.email || !order) return;
+            const orders = readCache(CACHE_KEYS.orders, {});
+            const email = userSession.email.toLowerCase();
+            const orderId = order.id || order.order_id;
+            if (!orders[email]) orders[email] = [];
+            if (!orderId || !orders[email].some(item => String(item.id || item.order_id) === String(orderId))) orders[email].unshift(order);
+            writeCache(CACHE_KEYS.orders, orders);
         }
 
         async function notifyDiscord(webhookUrl, content, embeds = []) {
@@ -1334,6 +1371,7 @@
             document.getElementById('pdp-category').textContent = p.category_name || 'Item';
             pdpCustomizations = { add: [], remove: [] };
             renderCustomizationOptions();
+            renderProductReviews(p.id);
             document.getElementById('pdp-add').setAttribute('onclick', `addPdpToCart('${p.id}')`);
 
             navigate(`product/${encodeURIComponent(p.id)}`, updateUrl);
@@ -1572,6 +1610,7 @@
                     console.warn('Legacy order endpoint rejected the payload; retrying cash checkout endpoint.', orderError);
                     result = await api.createCashCheckout(orderDetails);
                 }
+                storeOrder(result.data || result.order || result);
                 await notifyCompletedOrder(result, addressText);
                 alert('Order placed! Check your email for confirmation.');
                 cartId = null; localStorage.removeItem('vm_cart_id');
@@ -1664,12 +1703,29 @@
             if (!list) return;
             list.innerHTML = '<p class="text-frost">Loading orders...</p>';
             try {
-                const orders = await api.getOrders(userSession.email);
-                renderAccountOrders(Array.isArray(orders) ? orders : (orders.orders || []));
+                const response = await api.getOrders(userSession.email);
+                const remoteOrders = normalizeOrders(response);
+                const storedOrders = getStoredOrders();
+                const combined = [...remoteOrders, ...storedOrders].filter((order, index, orders) => {
+                    const id = order.id || order.order_id || `${order.created_at || ''}-${index}`;
+                    return orders.findIndex(candidate => String(candidate.id || candidate.order_id || `${candidate.created_at || ''}-${index}`) === String(id)) === index;
+                });
+                renderAccountOrders(combined);
             } catch (error) {
                 console.error('Order history API error:', error);
-                list.innerHTML = `<p class="text-red-400">${error.message}</p>`;
+                const storedOrders = getStoredOrders();
+                renderAccountOrders(storedOrders);
+                if (!storedOrders.length) list.innerHTML = `<p class="text-red-400">${error.message}</p>`;
             }
+        }
+
+        function normalizeOrders(response) {
+            if (Array.isArray(response)) return response;
+            if (Array.isArray(response?.orders)) return response.orders;
+            if (Array.isArray(response?.data)) return response.data;
+            if (Array.isArray(response?.data?.orders)) return response.data.orders;
+            if (Array.isArray(response?.results)) return response.results;
+            return [];
         }
 
         function renderAccountOrders(orders) {
@@ -1706,6 +1762,53 @@
             const stageIndex = stages.findIndex(stage => normalized.includes(stage));
             const activeIndex = stageIndex < 0 ? (normalized.includes('cancel') ? -1 : 0) : stageIndex;
             return stages.map((stage, index) => `<span class="h-1.5 flex-1 rounded-full ${index <= activeIndex ? 'bg-neon' : 'bg-edge'}" title="${stage}"></span>`).join('');
+        }
+
+        function getProductReviews(productId) {
+            const reviews = readCache(CACHE_KEYS.reviews, {});
+            return Array.isArray(reviews[productId]) ? reviews[productId] : [];
+        }
+
+        function escapeHtml(value) {
+            return String(value).replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character]));
+        }
+
+        function renderProductReviews(productId) {
+            const reviews = getProductReviews(productId);
+            const list = document.getElementById('pdp-reviews');
+            const average = document.getElementById('pdp-review-average');
+            const averageRating = reviews.length ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length : 0;
+            average.textContent = reviews.length ? `${averageRating.toFixed(1)} / 5 (${reviews.length})` : 'No reviews yet';
+            list.innerHTML = reviews.length ? reviews.map(review => `<article class="border-b border-edge pb-4"><div class="flex justify-between gap-3"><span class="text-neon">${'★'.repeat(review.rating)}${'☆'.repeat(5 - review.rating)}</span><span class="text-xs text-frost">${new Date(review.created_at).toLocaleDateString()}</span></div><p class="text-sm text-ice mt-2">${escapeHtml(review.text)}</p><p class="text-xs text-frost mt-2">${escapeHtml(review.name)}</p></article>`).join('') : '<p class="text-sm text-frost">Be the first to review this item.</p>';
+        }
+
+        function submitProductReview() {
+            const product = window._currentProduct;
+            const text = document.getElementById('review-text').value.trim();
+            const rating = Number(document.querySelector('input[name="review-rating"]:checked')?.value || 5);
+            const status = document.getElementById('review-status');
+            if (!product || !text) {
+                status.textContent = 'Write a review before posting.';
+                return;
+            }
+            if (!userSession) {
+                status.textContent = 'Sign in before posting a review.';
+                return;
+            }
+            const reviews = readCache(CACHE_KEYS.reviews, {});
+            const productId = String(product.id);
+            if (!reviews[productId]) reviews[productId] = [];
+            reviews[productId].unshift({
+                rating,
+                text,
+                name: userSession.name || userSession.email,
+                email: userSession.email,
+                created_at: new Date().toISOString()
+            });
+            writeCache(CACHE_KEYS.reviews, reviews);
+            document.getElementById('review-text').value = '';
+            status.textContent = 'Review posted.';
+            renderProductReviews(product.id);
         }
 
         async function reorder(items) {
