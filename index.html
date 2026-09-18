@@ -1059,7 +1059,8 @@
             async removeFromCart(cid, pid) { return this.post('cart_remove', { cart_id: cid, product_id: pid }); },
             async createCheckout(details) { return this.post('checkout_create', details); },
             async completeCheckout(details) { return this.post('checkout_complete', details); },
-            async placeOrder(d) { return this.post('order', d); }
+            async placeOrder(d) { return this.post('order', d); },
+            async createCashCheckout(d) { return this.post('checkout_create', d); }
         };
 
         // STATE
@@ -1555,7 +1556,7 @@
                     postal_code: address.postal_code,
                     delivery_notes: address.notes,
                     delivery_area: CONFIG.DELIVERY_AREA,
-                    payment_method: 'cash_on_delivery',
+                    payment_method: 'cod',
                     payment_type: 'cash',
                     payment_status: 'pending',
                     discount_code: currentDiscount ? currentDiscount.code : null
@@ -1563,7 +1564,14 @@
                 if (!orderDetails.cart_id || !orderDetails.items.length || orderDetails.items.some(item => !item.product_id)) {
                     throw new Error('Your cart items are incomplete. Please refresh your bag and try again.');
                 }
-                const result = await api.placeOrder(orderDetails);
+                let result;
+                try {
+                    result = await api.placeOrder(orderDetails);
+                } catch (orderError) {
+                    if (!/incomplete order data/i.test(orderError.message)) throw orderError;
+                    console.warn('Legacy order endpoint rejected the payload; retrying cash checkout endpoint.', orderError);
+                    result = await api.createCashCheckout(orderDetails);
+                }
                 await notifyCompletedOrder(result, addressText);
                 alert('Order placed! Check your email for confirmation.');
                 cartId = null; localStorage.removeItem('vm_cart_id');
