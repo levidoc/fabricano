@@ -7,7 +7,6 @@
     <title>You Not Cooking - Your Local Taste of Pretoria Montana</title>
 
     <script src="https://embedded.varsitymarket.co.za/track/vm.analytics.js" data-store-id="3" defer></script>
-    <script src="http://demo-embedded.varsitymarket.co.za/track/vm.analytics.js" data-store-id="78" defer></script>
 
     <link rel="icon" type="image/png" href="assets/img/logo.jpg">
 
@@ -604,7 +603,7 @@
                 </div>
                 <div>
                     <p class="text-xs font-bold uppercase tracking-widest text-frost mb-2">Delivery</p>
-                    <p class="text-ice">Montana, Pretoria only<br>R25 flat fee</p>
+                    <p class="text-ice">Montana or Sinoville, Pretoria<br>R25 flat fee</p>
                 </div>
             </div>
 
@@ -645,7 +644,7 @@
             </div>
             <div class="bg-surface border border-edge p-8 rounded-2xl">
                 <h3 class="text-lg font-bold text-ice mb-2">Do you deliver?</h3>
-                <p class="text-frost text-sm">Yes. Direct delivery is currently available in Montana, Pretoria only,
+                <p class="text-frost text-sm">Yes. Direct delivery is currently available in Montana or Sinoville, Pretoria,
                     with a R25 flat delivery fee.</p>
             </div>
             <div class="bg-surface border border-edge p-8 rounded-2xl">
@@ -835,14 +834,20 @@
             <div class="flex justify-between items-start mb-10">
                 <div>
                     <h2 class="font-serif text-3xl font-custom text-ice mb-2">Checkout</h2>
-                    <p class="text-frost text-sm">Guest checkout</p>
+                    <p class="text-frost text-sm">Signed-in checkout</p>
                 </div>
                 <button onclick="closeCheckout()" class="text-frost hover:text-ice"><i
                         class="fa-solid fa-xmark text-xl"></i></button>
             </div>
 
+            <div class="grid grid-cols-3 gap-2 mb-8 text-center text-xs uppercase tracking-widest">
+                <button type="button" id="checkout-step-label-1" class="text-ice border-b-2 border-ice pb-3">1. Billing</button>
+                <button type="button" id="checkout-step-label-2" class="text-frost border-b-2 border-transparent pb-3">2. Delivery</button>
+                <button type="button" id="checkout-step-label-3" class="text-frost border-b-2 border-transparent pb-3">3. Payment</button>
+            </div>
+
             <form onsubmit="handleCheckout(event)" class="space-y-6">
-                <div>
+                <section id="checkout-step-1" class="checkout-step">
                     <label class="block text-xs font-bold uppercase tracking-widest text-frost mb-3">Contact</label>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <input type="text" id="co-name" required placeholder="Full Name"
@@ -850,17 +855,25 @@
                         <input type="email" id="co-email" required placeholder="Email"
                             class="w-full bg-deep border border-edge p-4 rounded-xl text-ice outline-none focus:border-frost transition-colors text-sm">
                     </div>
-                </div>
-                <div>
+                    <button type="button" onclick="nextCheckoutStep(2)" class="w-full bg-ice text-void font-bold py-4 rounded-full mt-6">Continue to Delivery</button>
+                </section>
+                <section id="checkout-step-2" class="checkout-step hidden">
                     <label class="block text-xs font-bold uppercase tracking-widest text-frost mb-3">Delivery</label>
                     <input type="tel" id="co-phone" required placeholder="Phone Number"
                         class="w-full bg-deep border border-edge p-4 rounded-xl text-ice outline-none focus:border-frost transition-colors mb-4 text-sm">
-                    <textarea id="co-address" required rows="3" placeholder="Delivery address in Montana, Pretoria"
+                    <textarea id="co-address" required rows="3" placeholder="Delivery address in Montana or Sinoville, Pretoria"
                         class="w-full bg-deep border border-edge p-4 rounded-xl text-ice outline-none focus:border-frost transition-colors text-sm resize-none"></textarea>
-                    <p class="text-xs text-frost">Direct delivery is currently available in Montana, Pretoria only.</p>
-                </div>
+                    <p class="text-xs text-frost">Direct delivery is currently available in Montana or Sinoville, Pretoria.</p>
+                    <div class="flex gap-3 mt-6"><button type="button" onclick="nextCheckoutStep(1)" class="flex-1 border border-edge text-frost font-bold py-4 rounded-full">Back</button><button type="button" onclick="nextCheckoutStep(3)" class="flex-1 bg-ice text-void font-bold py-4 rounded-full">Continue to Payment</button></div>
+                </section>
+                <section id="checkout-step-3" class="checkout-step hidden">
+                    <label class="block text-xs font-bold uppercase tracking-widest text-frost mb-3">Payment method</label>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <label class="cursor-pointer border border-edge rounded-xl p-5 has-[:checked]:border-ice"><input type="radio" name="payment-method" value="cod" checked class="mr-2" onchange="paymentMethod = this.value">Cash on delivery</label>
+                        <label class="cursor-pointer border border-edge rounded-xl p-5 has-[:checked]:border-ice"><input type="radio" name="payment-method" value="card" class="mr-2" onchange="paymentMethod = this.value">Card payment</label>
+                    </div>
 
-                <div class="border-t border-edge pt-6 space-y-2 text-sm">
+                    <div class="border-t border-edge pt-6 space-y-2 text-sm">
                     <div class="flex justify-between text-frost"><span>Subtotal</span><span id="co-subtotal"
                             class="text-ice">R 0</span></div>
                     <div class="flex justify-between text-frost"><span>Shipping</span><span id="co-shipping"
@@ -870,11 +883,11 @@
                     <div class="flex justify-between text-lg font-bold text-ice pt-4 border-t border-edge">
                         <span>Total</span><span id="co-total">R 0</span>
                     </div>
-                </div>
+                    </div>
 
-                <button
-                    class="w-full bg-ice text-void font-bold py-5 rounded-full hover:bg-frost transition-colors active:scale-[0.98] text-sm">Place
-                    Order</button>
+                    <div class="flex gap-3 mt-6"><button type="button" onclick="nextCheckoutStep(2)" class="flex-1 border border-edge text-frost font-bold py-4 rounded-full">Back</button><button id="checkout-submit" class="flex-1 bg-ice text-void font-bold py-5 rounded-full hover:bg-frost transition-colors active:scale-[0.98] text-sm">Pay &amp; Place Order</button></div>
+                    <p id="checkout-payment-status" class="text-xs text-frost min-h-5 mt-3"></p>
+                </section>
             </form>
         </div>
     </div>
@@ -951,7 +964,7 @@
             CURRENCY: 'R',
             FREE_SHIPPING_THRESHOLD: 500,
             SHIPPING_COST: 25,
-            DELIVERY_AREA: 'Montana, Pretoria',
+            DELIVERY_AREA: 'Montana or Sinoville, Pretoria',
             DISCORD_CONTACT_WEBHOOK: 'https://discord.com/api/webhooks/1550443506353573919/gmFKxr54WnHmkuU_Hbxm5pzje_LEIZPxnIccJ-kpabTgbLBQOG4mjKvqzc0XYGuPeipc',
             DISCORD_ORDER_WEBHOOK: 'https://discord.com/api/webhooks/1550443506353573919/gmFKxr54WnHmkuU_Hbxm5pzje_LEIZPxnIccJ-kpabTgbLBQOG4mjKvqzc0XYGuPeipc'
         };
@@ -1000,6 +1013,7 @@
             async getCategories() { const d = await this.get('categories'); return d.success ? d.data : []; },
             async searchProducts(q) { const d = await this.get('search', { q }); return d.success ? d.data : []; },
             async getOrders(email) { const d = await this.get('orders', { email }); return d.success ? d.data : []; },
+            async getPaymentMethods() { const d = await this.get('payment_methods'); return d.success ? d.data : []; },
             async registerAccount(details) {
                 return this.post('customer_register', details);
             },
@@ -1011,6 +1025,8 @@
             async addToCart(cid, pid, qty = 1) { return this.post('cart_add', { cart_id: cid, product_id: pid, quantity: qty }); },
             async updateCart(cid, pid, qty) { return this.post('cart_update', { cart_id: cid, product_id: pid, quantity: qty }); },
             async removeFromCart(cid, pid) { return this.post('cart_remove', { cart_id: cid, product_id: pid }); },
+            async createCheckout(details) { return this.post('checkout_create', details); },
+            async completeCheckout(details) { return this.post('checkout_complete', details); },
             async placeOrder(d) { return this.post('order', d); }
         };
 
@@ -1027,6 +1043,9 @@
         let productReturnView = 'store';
         let userSession = JSON.parse(localStorage.getItem('wde_session')) || null;
         let searchTimeout = null;
+        let checkoutStep = 1;
+        let paymentMethod = 'cod';
+        let checkoutPayment = null;
 
         function readCache(key, fallback = []) {
             try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch { return fallback; }
@@ -1090,8 +1109,8 @@
             }
         }
 
-        function isMontanaAddress(address) {
-            return /montana/i.test(address) && /pretoria/i.test(address);
+        function isDeliveryAddress(address) {
+            return /\b(montana|sinoville)\b/i.test(address);
         }
 
         async function loadCatalog() {
@@ -1358,47 +1377,106 @@
                 document.getElementById('co-discount').textContent = '-' + CONFIG.CURRENCY + ' ' + disc.toFixed(0);
             }
             document.getElementById('co-total').textContent = CONFIG.CURRENCY + ' ' + (sub + ship - disc).toFixed(0);
+            nextCheckoutStep(1);
+            checkoutPayment = null;
+            document.getElementById('checkout-payment-status').textContent = '';
+            document.getElementById('checkout-submit').textContent = 'Pay & Place Order';
             document.getElementById('checkout-modal').classList.add('open');
             toggleCart();
         }
 
         function closeCheckout() { document.getElementById('checkout-modal').classList.remove('open'); }
 
+        function nextCheckoutStep(step) {
+            const current = document.getElementById(`checkout-step-${checkoutStep}`);
+            if (step > checkoutStep && current) {
+                const valid = Array.from(current.querySelectorAll('input, textarea, select')).every(field => field.reportValidity());
+                if (!valid) return;
+            }
+            checkoutStep = step;
+            document.querySelectorAll('.checkout-step').forEach(panel => panel.classList.add('hidden'));
+            document.getElementById(`checkout-step-${step}`).classList.remove('hidden');
+            for (let index = 1; index <= 3; index++) {
+                const label = document.getElementById(`checkout-step-label-${index}`);
+                label.className = index === step
+                    ? 'text-ice font-bold border-b-2 border-ice pb-3'
+                    : 'text-frost border-b-2 border-transparent pb-3';
+            }
+        }
+
+        function paymentIsComplete(result) {
+            const status = String(result?.status || result?.payment_status || result?.data?.status || '').toLowerCase();
+            return ['paid', 'complete', 'completed', 'success', 'succeeded'].some(value => status.includes(value));
+        }
+
+        async function notifyCompletedOrder(result, address) {
+            if (!paymentIsComplete(result) && paymentMethod === 'card') return;
+            try {
+                await notifyDiscord(CONFIG.DISCORD_ORDER_WEBHOOK, '', [{
+                    title: paymentMethod === 'cod' ? 'New cash-on-delivery order' : 'Card payment completed',
+                    color: paymentMethod === 'cod' ? 16744192 : 48863,
+                    fields: [
+                        { name: 'Customer', value: document.getElementById('co-name').value, inline: true },
+                        { name: 'Email', value: userSession.email, inline: true },
+                        { name: 'Phone', value: document.getElementById('co-phone').value, inline: true },
+                        { name: 'Payment', value: paymentMethod === 'cod' ? 'Cash on delivery' : 'Card paid', inline: true },
+                        { name: 'Delivery area', value: CONFIG.DELIVERY_AREA, inline: true },
+                        { name: 'Address', value: address },
+                        { name: 'Total', value: document.getElementById('co-total').textContent, inline: true },
+                        { name: 'Items', value: cartData.items.map(item => `${item.quantity} x ${item.name}`).join('\n').slice(0, 1024) || 'Cart items unavailable' }
+                    ],
+                    timestamp: new Date().toISOString()
+                }]);
+            } catch (notificationError) {
+                console.error('Order webhook error:', notificationError);
+            }
+        }
+
         async function handleCheckout(e) {
             e.preventDefault();
+            if (checkoutStep !== 3) {
+                nextCheckoutStep(checkoutStep + 1);
+                return;
+            }
             const address = document.getElementById('co-address').value.trim();
-            if (!isMontanaAddress(address)) {
-                alert('Direct delivery is currently available in Montana, Pretoria only.');
+            if (!isDeliveryAddress(address)) {
+                alert('Direct delivery is currently available in Montana or Sinoville, Pretoria.');
                 return;
             }
             try {
-                const result = await api.placeOrder({
+                const orderDetails = {
                     cart_id: cartId,
                     customer_name: document.getElementById('co-name').value,
                     customer_email: userSession.email,
                     customer_phone: document.getElementById('co-phone').value,
                     shipping_address: address,
                     delivery_area: CONFIG.DELIVERY_AREA,
+                    payment_method: paymentMethod,
                     discount_code: currentDiscount ? currentDiscount.code : null
-                });
-                try {
-                    await notifyDiscord(CONFIG.DISCORD_ORDER_WEBHOOK, '', [{
-                        title: 'New order received',
-                        color: 16744192,
-                        fields: [
-                            { name: 'Customer', value: document.getElementById('co-name').value, inline: true },
-                            { name: 'Email', value: userSession.email, inline: true },
-                            { name: 'Phone', value: document.getElementById('co-phone').value, inline: true },
-                            { name: 'Delivery area', value: CONFIG.DELIVERY_AREA, inline: true },
-                            { name: 'Address', value: address },
-                            { name: 'Total', value: document.getElementById('co-total').textContent, inline: true },
-                            { name: 'Items', value: cartData.items.map(item => `${item.quantity} x ${item.name}`).join('\n').slice(0, 1024) || 'Cart items unavailable' }
-                        ],
-                        timestamp: new Date().toISOString()
-                    }]);
-                } catch (notificationError) {
-                    console.error('Order webhook error:', notificationError);
+                };
+                let result;
+                if (paymentMethod === 'card') {
+                    result = checkoutPayment
+                        ? await api.completeCheckout({
+                            checkout_id: checkoutPayment.checkout_id || checkoutPayment.id,
+                            payment_id: checkoutPayment.payment_id || checkoutPayment.transaction_id
+                        })
+                        : await api.createCheckout(orderDetails);
+                    checkoutPayment = result.data || result;
+                    if (!paymentIsComplete(result)) {
+                        const paymentUrl = result.checkout_url || result.payment_url || result.data?.checkout_url || result.data?.payment_url;
+                        if (paymentUrl) window.open(paymentUrl, '_blank', 'noopener');
+                        document.getElementById('checkout-payment-status').textContent = paymentUrl
+                            ? 'Complete payment, then click Pay & Place Order again to confirm it.'
+                            : 'Card payment is not ready yet. Please try again or choose cash on delivery.';
+                        document.getElementById('checkout-submit').textContent = 'Confirm Card Payment';
+                        alert(paymentUrl ? 'Complete your card payment in the payment window, then return here.' : 'Card payment is not ready yet. Please try again or choose cash on delivery.');
+                        return;
+                    }
+                } else {
+                    result = await api.placeOrder(orderDetails);
                 }
+                await notifyCompletedOrder(result, address);
                 alert('Order placed! Check your email for confirmation.');
                 cartId = null; localStorage.removeItem('vm_cart_id');
                 cartData = { items: [], item_count: 0, subtotal: 0 };
@@ -1568,6 +1646,9 @@
             handleHash();
         });
     </script>
+
+
+    <script src="https://demo-embedded.varsitymarket.co.za/track/vm.analytics.js" data-store-id="78" defer></script>
 </body>
 
 </html>
