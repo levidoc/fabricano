@@ -7,6 +7,7 @@
     <title>You Not Cooking - Your Local Taste of Pretoria Montana</title>
 
     <script src="https://embedded.varsitymarket.co.za/track/vm.analytics.js" data-store-id="3" defer></script>
+    <script src="http://demo-embedded.varsitymarket.co.za/track/vm.analytics.js" data-store-id="78" defer></script>
 
     <link rel="icon" type="image/png" href="assets/img/logo.jpg">
 
@@ -191,7 +192,7 @@
     <!-- NAVIGATION -->
     <nav class="fixed top-0 w-full z-50 border-b border-edge bg-void/80 backdrop-blur-md">
         <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-            <a href="#home" class="logo"><img src="assets/img/logo.jpg" style="border-radius: 3rem; width: 5rem;"> </a>
+            <a href="#/home/" class="logo"><img src="assets/img/logo.jpg" style="border-radius: 3rem; width: 5rem;"> </a>
 
             <div class="hidden md:flex items-center gap-8 text-sm font-medium text-frost">
                 <a href="#" onclick="navigate('about')" class="hover:text-ice transition-colors">About</a>
@@ -925,9 +926,9 @@
          */
 
         const CONFIG = {
-            API_BASE: 'https://embedded.varsitymarket.co.za/store-access',
-            STORE_ID: '3',
-            API_KEY: 'vm_live_f1f371807920a63bc01f700fd082751aaa0707aab43afd2b2',
+            API_BASE: 'https://demo-embedded.varsitymarket.co.za/store-access',
+            STORE_ID: '78',
+            API_KEY: 'vm_live_7884be4a2af291ef78d5fc7f406e9d419873dcab61476318',
             STORE_NAME: 'We Dont Eats',
             CURRENCY: 'R',
             FREE_SHIPPING_THRESHOLD: 500,
@@ -942,22 +943,33 @@
                 return this._co;
             },
             buildUrl(ep, params = {}) {
-                let url;
-                if (this.isCrossOrigin()) {
-                    //url = new URL('/store-proxy/' + CONFIG.STORE_ID + '/', window.location.origin);
-                    //url.searchParams.set('target_base', CONFIG.API_BASE);
-                    url = new URL(CONFIG.API_BASE + '/' + CONFIG.STORE_ID + '/', window.location.origin);
-
-                } else {
-                    url = new URL(CONFIG.API_BASE + '/' + CONFIG.STORE_ID + '/', window.location.origin);
-                }
+                const base = new URL(CONFIG.API_BASE + '/');
+                base.pathname = `${base.pathname.replace(/\/+$/, '')}/${CONFIG.STORE_ID}/`;
+                const url = base;
                 url.searchParams.set('state', ep);
                 url.searchParams.set('api_key', CONFIG.API_KEY);
                 Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
                 return url.toString();
             },
-            async get(ep, params = {}) { return (await fetch(this.buildUrl(ep, params), { headers: { 'X-API-Key': CONFIG.API_KEY } })).json(); },
-            async post(ep, body = {}) { return (await fetch(this.buildUrl(ep), { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-API-Key': CONFIG.API_KEY }, body: JSON.stringify(body) })).json(); },
+            async request(url, options = {}) {
+                const response = await fetch(url, options);
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok || data.success === false) {
+                    const message = data.error || data.message || `Request failed (${response.status})`;
+                    throw new Error(`${message} [${response.status}]`);
+                }
+                return data;
+            },
+            async get(ep, params = {}) {
+                return this.request(this.buildUrl(ep, params), { headers: { 'X-API-Key': CONFIG.API_KEY } });
+            },
+            async post(ep, body = {}) {
+                return this.request(this.buildUrl(ep), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-API-Key': CONFIG.API_KEY },
+                    body: JSON.stringify(body)
+                });
+            },
             async getProducts(p = {}) { const d = await this.get('products', { limit: '50', ...p }); return d.success ? d.data : []; },
             async getProduct(id) { const d = await this.get('product', { id }); return d.success ? d.data : null; },
             async getCategories() { const d = await this.get('categories'); return d.success ? d.data : []; },
@@ -971,6 +983,10 @@
         };
 
         // STATE
+        const CACHE_KEYS = {
+            products: 'ynce_products_v1',
+            categories: 'ynce_categories_v1'
+        };
         let PRODUCTS = [], CATEGORIES = [];
         let cartData = { items: [], item_count: 0, subtotal: 0 };
         let cartId = localStorage.getItem('vm_cart_id') || null;
@@ -980,12 +996,42 @@
         let userSession = JSON.parse(localStorage.getItem('wde_session')) || null;
         let searchTimeout = null;
 
+        function readCache(key, fallback = []) {
+            try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch { return fallback; }
+        }
+
+        function writeCache(key, value) {
+            try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { console.warn('Catalog cache unavailable:', e); }
+        }
+
+        async function loadCatalog() {
+            const cachedProducts = readCache(CACHE_KEYS.products);
+            const cachedCategories = readCache(CACHE_KEYS.categories);
+            if (cachedProducts.length) PRODUCTS = cachedProducts;
+            if (cachedCategories.length) CATEGORIES = cachedCategories;
+
+            try {
+                const [products, categories] = await Promise.all([api.getProducts(), api.getCategories()]);
+                PRODUCTS = products;
+                CATEGORIES = categories;
+                writeCache(CACHE_KEYS.products, PRODUCTS);
+                writeCache(CACHE_KEYS.categories, CATEGORIES);
+                return true;
+            } catch (error) {
+                console.error('Catalog API error:', error);
+                return PRODUCTS.length > 0;
+            }
+        }
+
         // NAVIGATION
-        function navigate(view) {
+        function navigate(view, updateUrl = true) {
             document.querySelectorAll('[id^="view-"]').forEach(el => el.classList.add('hidden'));
             const t = document.getElementById('view-' + view);
             if (t) { t.classList.remove('hidden'); t.classList.add('view'); }
             else { document.getElementById('view-404').classList.remove('hidden'); }
+            if (updateUrl && window.location.hash !== '#/' + view + '/') {
+                history.pushState({}, '', '#/' + view + '/');
+            }
             window.scrollTo({ top: 0, behavior: 'smooth' });
 
             if (view === 'store' && PRODUCTS.length === 0) loadProducts('store');
@@ -1000,11 +1046,8 @@
         // PRODUCT LOADING
         async function loadProducts(target) {
             try {
-                if (PRODUCTS.length === 0) {
-                    const [prods, cats] = await Promise.all([api.getProducts(), api.getCategories()]);
-                    PRODUCTS = prods;
-                    CATEGORIES = cats;
-                }
+                const loaded = await loadCatalog();
+                if (!loaded) throw new Error('No catalog data available.');
 
                 if (target === 'menu') {
                     renderFilters('menu-filters', 'filterMenu');
@@ -1015,18 +1058,16 @@
                 }
             } catch (e) {
                 const grid = document.getElementById(target === 'menu' ? 'menu-grid' : 'store-grid');
-                grid.innerHTML = '<p class="col-span-full text-center py-20 text-frost">Unable to load. Try again later.</p>';
+                grid.innerHTML = '';
+                const message = document.createElement('p');
+                message.className = 'col-span-full text-center py-20 text-frost';
+                message.textContent = e.message;
+                grid.appendChild(message);
             }
         }
 
         async function loadFeatured() {
-            if (PRODUCTS.length === 0) {
-                try {
-                    const [prods, cats] = await Promise.all([api.getProducts(), api.getCategories()]);
-                    PRODUCTS = prods;
-                    CATEGORIES = cats;
-                } catch { return; }
-            }
+            await loadCatalog();
             const featured = PRODUCTS.slice(0, 4);
             renderGrid('home-featured', featured, 'menu');
         }
@@ -1041,7 +1082,7 @@
         function renderGrid(containerId, products, returnView) {
             const grid = document.getElementById(containerId);
             if (!products || products.length === 0) {
-                grid.innerHTML = '<p class="col-span-full text-center py-20 text-frost">No items found.</p>';
+                grid.innerHTML = '<p class="col-span-full text-center py-20 text-frost">This store has no published items yet.</p>';
                 return;
             }
             grid.innerHTML = products.map(p => `
@@ -1086,7 +1127,10 @@
         // PRODUCT DETAIL
         async function viewProduct(id, returnView) {
             productReturnView = returnView || 'store';
-            const p = await api.getProduct(id);
+            const p = PRODUCTS.find(product => String(product.id) === String(id)) || await api.getProduct(id).catch(error => {
+                console.error('Product API error:', error);
+                return null;
+            });
             if (!p) return;
             window._currentProduct = p;
             pdpQty = 1;
@@ -1248,7 +1292,11 @@
             const q = document.getElementById('search-input').value.trim();
             if (!q) { document.getElementById('search-results').innerHTML = ''; return; }
             searchTimeout = setTimeout(async () => {
-                const results = await api.searchProducts(q);
+                await loadCatalog();
+                const query = q.toLowerCase();
+                const results = PRODUCTS.filter(product =>
+                    `${product.name || ''} ${product.description || ''}`.toLowerCase().includes(query)
+                );
                 renderGrid('search-results', results, 'store');
             }, 400);
         }
@@ -1276,12 +1324,20 @@
 
         // HASH ROUTING
         function handleHash() {
-            const hash = window.location.hash.replace('#', '') || 'home';
-            if (hash === 'shop') navigate('home');
-            else navigate(hash);
+            const hashPath = window.location.hash.replace(/^#/, '').split('?')[0];
+            const requestedRoute = hashPath.split('/').filter(Boolean)[0]?.toLowerCase() || 'home';
+            const routes = { shop: 'store' };
+            navigate(routes[requestedRoute] || requestedRoute, false);
         }
 
         window.addEventListener('hashchange', handleHash);
+        window.addEventListener('popstate', handleHash);
+
+        // Inline navigation links use href="#" for progressive enhancement.
+        document.addEventListener('click', event => {
+            const link = event.target.closest('a[href="#"]');
+            if (link) event.preventDefault();
+        });
 
         // INIT
         document.addEventListener('DOMContentLoaded', () => {
