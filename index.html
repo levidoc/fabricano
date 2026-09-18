@@ -436,6 +436,23 @@
             <div class="flex flex-col justify-center">
                 <h1 id="pdp-name" class="font-serif text-4xl md:text-5xl font-custom text-ice mb-4">Product Name</h1>
                 <p id="pdp-price" class="text-2xl text-frost mb-8">R 0</p>
+                <div class="bg-surface border border-edge p-6 rounded-2xl mb-8">
+                    <div class="flex justify-between items-center mb-5">
+                        <div>
+                            <h3 class="text-xs font-bold uppercase tracking-widest text-ice">Customize your order</h3>
+                            <p class="text-xs text-frost mt-1">Add toppings or remove ingredients.</p>
+                        </div>
+                        <i class="fa-solid fa-sliders text-neon"></i>
+                    </div>
+                    <div class="mb-5">
+                        <p class="text-xs font-bold uppercase tracking-widest text-frost mb-3">Remove</p>
+                        <div id="pdp-remove-options" class="grid grid-cols-2 gap-3"></div>
+                    </div>
+                    <div>
+                        <p class="text-xs font-bold uppercase tracking-widest text-frost mb-3">Add</p>
+                        <div id="pdp-add-options" class="grid grid-cols-2 gap-3"></div>
+                    </div>
+                </div>
                 <div class="mb-10">
                     <p class="text-xs font-bold uppercase tracking-widest text-frost mb-3">Quantity</p>
                     <div class="flex items-center gap-6 bg-deep w-max px-2 py-2 rounded-full border border-edge">
@@ -885,8 +902,9 @@
                     <div class="border-t border-edge pt-6 space-y-2 text-sm">
                     <div class="flex justify-between text-frost"><span>Subtotal</span><span id="co-subtotal"
                             class="text-ice">R 0</span></div>
-                    <div class="flex justify-between text-frost"><span>Shipping</span><span id="co-shipping"
+                        <div class="flex justify-between text-frost"><span>Shipping</span><span id="co-shipping"
                             class="text-ice">R 25</span></div>
+                        <div class="border-t border-edge pt-3 mt-3"><p class="text-xs font-bold uppercase tracking-widest text-frost mb-2">Toppings and changes</p><div id="co-customizations" class="text-xs text-ice space-y-1"><p>No changes selected.</p></div></div>
                     <div class="flex justify-between hidden" id="co-discount-row"><span
                             class="text-neon">Discount</span><span class="text-neon" id="co-discount">-R 0</span></div>
                     <div class="flex justify-between text-lg font-bold text-ice pt-4 border-t border-edge">
@@ -998,7 +1016,9 @@
                 const response = await fetch(url, options);
                 const data = await response.json().catch(() => ({}));
                 if (!response.ok || data.success === false) {
-                    const message = data.error || data.message || `Request failed (${response.status})`;
+                    const details = data.details || data.errors || data.hint;
+                    const detailText = details ? `: ${typeof details === 'string' ? details : JSON.stringify(details)}` : '';
+                    const message = `${data.error || data.message || `Request failed (${response.status})`}${detailText}`;
                     throw new Error(`${message} [${response.status}]`);
                 }
                 return data;
@@ -1031,7 +1051,7 @@
             },
             async createCart() { const d = await this.post('cart_create'); return d.success ? d.data : null; },
             async getCart(cid) { const d = await this.get('cart', { cart_id: cid }); return d.success ? d.data : null; },
-            async addToCart(cid, pid, qty = 1) { return this.post('cart_add', { cart_id: cid, product_id: pid, quantity: qty }); },
+            async addToCart(cid, pid, qty = 1, customizations = {}) { return this.post('cart_add', { cart_id: cid, product_id: pid, quantity: qty, customizations }); },
             async updateCart(cid, pid, qty) { return this.post('cart_update', { cart_id: cid, product_id: pid, quantity: qty }); },
             async removeFromCart(cid, pid) { return this.post('cart_remove', { cart_id: cid, product_id: pid }); },
             async createCheckout(details) { return this.post('checkout_create', details); },
@@ -1054,6 +1074,12 @@
         let searchTimeout = null;
         let checkoutStep = 1;
         const paymentMethod = 'cod';
+        const TOPPING_OPTIONS = {
+            remove: ['Cheese', 'Atchar', 'Egg', 'Bacon', 'Russian', 'Polony'],
+            add: ['Extra cheese', 'Extra bacon', 'Extra egg', 'Extra atchar']
+        };
+        let pdpCustomizations = { add: [], remove: [] };
+        let cartCustomizations = readCache('ynce_cart_customizations_v1', {});
 
         function readCache(key, fallback = []) {
             try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch { return fallback; }
@@ -1119,6 +1145,48 @@
 
         function isDeliveryAddress(address) {
             return /\b(montana|sinoville)\b/i.test(address) && /\bpretoria\b/i.test(address);
+        }
+
+        function renderCustomizationOptions() {
+            ['remove', 'add'].forEach(type => {
+                document.getElementById(`pdp-${type}-options`).innerHTML = TOPPING_OPTIONS[type].map((label, index) => {
+                    const id = `pdp-${type}-${index}`;
+                    return `<label for="${id}" class="flex items-center gap-2 bg-deep border border-edge rounded-lg p-3 text-xs text-frost cursor-pointer"><input id="${id}" type="checkbox" value="${label}" onchange="updatePdpCustomizations()">${label}</label>`;
+                }).join('');
+            });
+        }
+
+        function updatePdpCustomizations() {
+            pdpCustomizations = {
+                remove: Array.from(document.querySelectorAll('#pdp-remove-options input:checked')).map(input => input.value),
+                add: Array.from(document.querySelectorAll('#pdp-add-options input:checked')).map(input => input.value)
+            };
+        }
+
+        function customizationText(customizations = {}) {
+            const additions = customizations.add || customizations.additions || [];
+            const removals = customizations.remove || customizations.removals || [];
+            const lines = [];
+            if (additions.length) lines.push(`Add: ${additions.join(', ')}`);
+            if (removals.length) lines.push(`Remove: ${removals.join(', ')}`);
+            return lines;
+        }
+
+        function getItemCustomizations(item) {
+            return item.customizations || item.options || cartCustomizations[item.product_id || item.productId || item.id] || {};
+        }
+
+        function getCartProductId(item) {
+            return item.product_id || item.productId || item.product?.id || item.product?.product_id || item.id || null;
+        }
+
+        function renderCheckoutCustomizations() {
+            const summary = document.getElementById('co-customizations');
+            const lines = cartData.items.flatMap(item => {
+                const changes = customizationText(getItemCustomizations(item));
+                return changes.length ? [`${item.quantity} x ${item.name}: ${changes.join('; ')}`] : [];
+            });
+            summary.innerHTML = lines.length ? lines.map(line => `<p>${line}</p>`).join('') : '<p>No changes selected.</p>';
         }
 
         async function loadCatalog() {
@@ -1259,6 +1327,8 @@
             document.getElementById('pdp-qty').textContent = '1';
             document.getElementById('pdp-desc').textContent = p.description || 'No description available.';
             document.getElementById('pdp-category').textContent = p.category_name || 'Item';
+            pdpCustomizations = { add: [], remove: [] };
+            renderCustomizationOptions();
             document.getElementById('pdp-add').setAttribute('onclick', `addPdpToCart('${p.id}')`);
 
             navigate('product');
@@ -1308,6 +1378,7 @@
                     <div class="flex-1 min-w-0">
                         <p class="text-sm font-semibold text-ice truncate">${item.name}</p>
                         <p class="text-frost text-sm">${CONFIG.CURRENCY} ${parseFloat(item.price).toFixed(0)}</p>
+                        ${customizationText(getItemCustomizations(item)).map(line => `<p class="text-neon text-xs">${line}</p>`).join('')}
                         <div class="flex items-center gap-3 mt-2">
                             <button onclick="updateCartItem('${item.product_id}', ${item.quantity - 1})" class="w-7 h-7 rounded-full bg-edge text-xs flex items-center justify-center hover:bg-frost hover:text-void transition-colors">-</button>
                             <span class="text-xs text-ice">${item.quantity}</span>
@@ -1328,7 +1399,10 @@
 
         async function addPdpToCart(pid) {
             await ensureCart();
-            await api.addToCart(cartId, pid, pdpQty);
+            updatePdpCustomizations();
+            cartCustomizations[pid] = pdpCustomizations;
+            writeCache('ynce_cart_customizations_v1', cartCustomizations);
+            await api.addToCart(cartId, pid, pdpQty, pdpCustomizations);
             await refreshCart();
             toggleCart();
         }
@@ -1385,6 +1459,7 @@
                 document.getElementById('co-discount').textContent = '-' + CONFIG.CURRENCY + ' ' + disc.toFixed(0);
             }
             document.getElementById('co-total').textContent = CONFIG.CURRENCY + ' ' + (sub + ship - disc).toFixed(0);
+            renderCheckoutCustomizations();
             nextCheckoutStep(1);
             document.getElementById('checkout-payment-status').textContent = '';
             document.getElementById('checkout-submit').textContent = 'Place Cash Order';
@@ -1424,7 +1499,7 @@
                         { name: 'Delivery area', value: CONFIG.DELIVERY_AREA, inline: true },
                         { name: 'Address', value: address },
                         { name: 'Total', value: document.getElementById('co-total').textContent, inline: true },
-                        { name: 'Items', value: cartData.items.map(item => `${item.quantity} x ${item.name}`).join('\n').slice(0, 1024) || 'Cart items unavailable' }
+                        { name: 'Items', value: cartData.items.map(item => `${item.quantity} x ${item.name}${customizationText(getItemCustomizations(item)).length ? ` (${customizationText(getItemCustomizations(item)).join('; ')})` : ''}`).join('\n').slice(0, 1024) || 'Cart items unavailable' }
                     ],
                     timestamp: new Date().toISOString()
                 }]);
@@ -1456,14 +1531,18 @@
                 const orderDetails = {
                     cart_id: cartId,
                     items: cartData.items.map(item => ({
-                        product_id: item.product_id || item.productId || item.id,
-                        quantity: item.quantity
+                        product_id: getCartProductId(item),
+                        quantity: Number(item.quantity) || 1,
+                        customizations: getItemCustomizations(item)
                     })),
                     customer_name: document.getElementById('co-name').value,
                     customer_email: userSession.email,
                     customer_phone: document.getElementById('co-phone').value,
                     shipping_address: addressText,
+                    delivery_address: addressText,
+                    customer_address: addressText,
                     address: addressText,
+                    address_line_1: address.street,
                     street_address: address.street,
                     suburb: address.zone,
                     city: address.city,
@@ -1471,10 +1550,14 @@
                     postal_code: address.postal_code,
                     delivery_notes: address.notes,
                     delivery_area: CONFIG.DELIVERY_AREA,
-                    payment_method: 'cod',
+                    payment_method: 'cash_on_delivery',
+                    payment_type: 'cash',
                     payment_status: 'pending',
                     discount_code: currentDiscount ? currentDiscount.code : null
                 };
+                if (!orderDetails.cart_id || !orderDetails.items.length || orderDetails.items.some(item => !item.product_id)) {
+                    throw new Error('Your cart items are incomplete. Please refresh your bag and try again.');
+                }
                 const result = await api.placeOrder(orderDetails);
                 await notifyCompletedOrder(result, addressText);
                 alert('Order placed! Check your email for confirmation.');
