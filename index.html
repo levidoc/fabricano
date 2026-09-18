@@ -204,6 +204,9 @@
                 <a href="#" onclick="navigate('search')" class="text-frost hover:text-ice transition-colors">
                     <i class="fa-solid fa-magnifying-glass"></i>
                 </a>
+                <button onclick="handleAccountClick()" class="text-frost hover:text-ice transition-colors" aria-label="Account" title="Account">
+                    <i class="fa-solid fa-user text-lg"></i>
+                </button>
                 <a href="#" onclick="openMenu()" class="text-frost hover:text-ice transition-colors md:hidden">
                     <i class="fa-solid fa-bars text-lg"></i>
                 </a>
@@ -1210,8 +1213,9 @@
 
         // NAVIGATION
         function navigate(view, updateUrl = true) {
+            const [route] = view.split('/');
             document.querySelectorAll('[id^="view-"]').forEach(el => el.classList.add('hidden'));
-            const t = document.getElementById('view-' + view);
+            const t = document.getElementById('view-' + route);
             if (t) { t.classList.remove('hidden'); t.classList.add('view'); }
             else { document.getElementById('view-404').classList.remove('hidden'); }
             if (updateUrl && window.location.hash !== '#/' + view + '/') {
@@ -1219,11 +1223,11 @@
             }
             window.scrollTo({ top: 0, behavior: 'smooth' });
 
-            if (view === 'store' && PRODUCTS.length === 0) loadProducts('store');
-            if (view === 'menu' && document.getElementById('menu-grid').children.length <= 1) loadProducts('menu');
-            if (view === 'home') loadFeatured();
-            if (view === 'search') document.getElementById('search-input').focus();
-            if (view === 'dashboard') loadAccountOrders();
+            if (route === 'store' && PRODUCTS.length === 0) loadProducts('store');
+            if (route === 'menu' && document.getElementById('menu-grid').children.length <= 1) loadProducts('menu');
+            if (route === 'home') loadFeatured();
+            if (route === 'search') document.getElementById('search-input').focus();
+            if (route === 'dashboard') loadAccountOrders();
         }
 
         function openMenu() { document.getElementById('myNav').style.width = '100%'; }
@@ -1311,7 +1315,7 @@
         }
 
         // PRODUCT DETAIL
-        async function viewProduct(id, returnView) {
+        async function viewProduct(id, returnView, updateUrl = true) {
             productReturnView = returnView || 'store';
             const p = PRODUCTS.find(product => String(product.id) === String(id)) || await api.getProduct(id).catch(error => {
                 console.error('Product API error:', error);
@@ -1331,7 +1335,7 @@
             renderCustomizationOptions();
             document.getElementById('pdp-add').setAttribute('onclick', `addPdpToCart('${p.id}')`);
 
-            navigate('product');
+            navigate(`product/${encodeURIComponent(p.id)}`, updateUrl);
         }
 
         function changePdpQty(d) {
@@ -1499,7 +1503,8 @@
                         { name: 'Delivery area', value: CONFIG.DELIVERY_AREA, inline: true },
                         { name: 'Address', value: address },
                         { name: 'Total', value: document.getElementById('co-total').textContent, inline: true },
-                        { name: 'Items', value: cartData.items.map(item => `${item.quantity} x ${item.name}${customizationText(getItemCustomizations(item)).length ? ` (${customizationText(getItemCustomizations(item)).join('; ')})` : ''}`).join('\n').slice(0, 1024) || 'Cart items unavailable' }
+                        { name: 'Items', value: cartData.items.map(item => `${item.quantity} x ${item.name}${customizationText(getItemCustomizations(item)).length ? ` (${customizationText(getItemCustomizations(item)).join('; ')})` : ''}`).join('\n').slice(0, 1024) || 'Cart items unavailable' },
+                        { name: 'Product links', value: cartData.items.map(item => `${item.name}: ${new URL(`#/product/${encodeURIComponent(getCartProductId(item))}/`, window.location.href).href}`).join('\n').slice(0, 1024) || 'No product links' }
                     ],
                     timestamp: new Date().toISOString()
                 }]);
@@ -1709,8 +1714,13 @@
         // HASH ROUTING
         function handleHash() {
             const hashPath = window.location.hash.replace(/^#/, '').split('?')[0];
-            const requestedRoute = hashPath.split('/').filter(Boolean)[0]?.toLowerCase() || 'home';
+            const segments = hashPath.split('/').filter(Boolean);
+            const requestedRoute = segments[0]?.toLowerCase() || 'home';
             const routes = { shop: 'store' };
+            if (requestedRoute === 'product' && segments[1]) {
+                viewProduct(decodeURIComponent(segments[1]), 'menu', false);
+                return;
+            }
             navigate(routes[requestedRoute] || requestedRoute, false);
         }
 
