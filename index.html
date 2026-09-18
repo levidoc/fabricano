@@ -861,17 +861,26 @@
                     <label class="block text-xs font-bold uppercase tracking-widest text-frost mb-3">Delivery</label>
                     <input type="tel" id="co-phone" required placeholder="Phone Number"
                         class="w-full bg-deep border border-edge p-4 rounded-xl text-ice outline-none focus:border-frost transition-colors mb-4 text-sm">
-                    <textarea id="co-address" required rows="3" placeholder="Delivery address in Montana or Sinoville, Pretoria"
+                    <input type="text" id="co-street" required placeholder="Street address and number"
+                        class="w-full bg-deep border border-edge p-4 rounded-xl text-ice outline-none focus:border-frost transition-colors mb-4 text-sm">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <input type="text" id="co-zone" required placeholder="Zone / suburb e.g. Montana"
+                            class="w-full bg-deep border border-edge p-4 rounded-xl text-ice outline-none focus:border-frost transition-colors text-sm">
+                        <input type="text" id="co-city" required value="Pretoria" placeholder="City"
+                            class="w-full bg-deep border border-edge p-4 rounded-xl text-ice outline-none focus:border-frost transition-colors text-sm">
+                        <input type="text" id="co-province" required value="Gauteng" placeholder="Province"
+                            class="w-full bg-deep border border-edge p-4 rounded-xl text-ice outline-none focus:border-frost transition-colors text-sm">
+                        <input type="text" id="co-postal-code" required inputmode="numeric" placeholder="Postal code"
+                            class="w-full bg-deep border border-edge p-4 rounded-xl text-ice outline-none focus:border-frost transition-colors text-sm">
+                    </div>
+                    <textarea id="co-notes" rows="2" placeholder="Delivery notes (optional)"
                         class="w-full bg-deep border border-edge p-4 rounded-xl text-ice outline-none focus:border-frost transition-colors text-sm resize-none"></textarea>
-                    <p class="text-xs text-frost">Direct delivery is currently available in Montana or Sinoville, Pretoria.</p>
+                    <p class="text-xs text-frost mt-2">Direct delivery is currently available in Montana or Sinoville, Pretoria.</p>
                     <div class="flex gap-3 mt-6"><button type="button" onclick="nextCheckoutStep(1)" class="flex-1 border border-edge text-frost font-bold py-4 rounded-full">Back</button><button type="button" onclick="nextCheckoutStep(3)" class="flex-1 bg-ice text-void font-bold py-4 rounded-full">Continue to Payment</button></div>
                 </section>
                 <section id="checkout-step-3" class="checkout-step hidden">
-                    <label class="block text-xs font-bold uppercase tracking-widest text-frost mb-3">Payment method</label>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                        <label class="cursor-pointer border border-edge rounded-xl p-5 has-[:checked]:border-ice"><input type="radio" name="payment-method" value="cod" checked class="mr-2" onchange="paymentMethod = this.value">Cash on delivery</label>
-                        <label class="cursor-pointer border border-edge rounded-xl p-5 has-[:checked]:border-ice"><input type="radio" name="payment-method" value="card" class="mr-2" onchange="paymentMethod = this.value">Card payment</label>
-                    </div>
+                    <label class="block text-xs font-bold uppercase tracking-widest text-frost mb-3">Payment</label>
+                    <div class="border border-edge rounded-xl p-5 mb-6 text-ice"><i class="fa-solid fa-money-bill-wave mr-2 text-neon"></i>Cash on delivery</div>
 
                     <div class="border-t border-edge pt-6 space-y-2 text-sm">
                     <div class="flex justify-between text-frost"><span>Subtotal</span><span id="co-subtotal"
@@ -885,7 +894,7 @@
                     </div>
                     </div>
 
-                    <div class="flex gap-3 mt-6"><button type="button" onclick="nextCheckoutStep(2)" class="flex-1 border border-edge text-frost font-bold py-4 rounded-full">Back</button><button id="checkout-submit" class="flex-1 bg-ice text-void font-bold py-5 rounded-full hover:bg-frost transition-colors active:scale-[0.98] text-sm">Pay &amp; Place Order</button></div>
+                    <div class="flex gap-3 mt-6"><button type="button" onclick="nextCheckoutStep(2)" class="flex-1 border border-edge text-frost font-bold py-4 rounded-full">Back</button><button id="checkout-submit" class="flex-1 bg-ice text-void font-bold py-5 rounded-full hover:bg-frost transition-colors active:scale-[0.98] text-sm">Place Cash Order</button></div>
                     <p id="checkout-payment-status" class="text-xs text-frost min-h-5 mt-3"></p>
                 </section>
             </form>
@@ -1044,8 +1053,7 @@
         let userSession = JSON.parse(localStorage.getItem('wde_session')) || null;
         let searchTimeout = null;
         let checkoutStep = 1;
-        let paymentMethod = 'cod';
-        let checkoutPayment = null;
+        const paymentMethod = 'cod';
 
         function readCache(key, fallback = []) {
             try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch { return fallback; }
@@ -1110,7 +1118,7 @@
         }
 
         function isDeliveryAddress(address) {
-            return /\b(montana|sinoville)\b/i.test(address);
+            return /\b(montana|sinoville)\b/i.test(address) && /\bpretoria\b/i.test(address);
         }
 
         async function loadCatalog() {
@@ -1378,9 +1386,8 @@
             }
             document.getElementById('co-total').textContent = CONFIG.CURRENCY + ' ' + (sub + ship - disc).toFixed(0);
             nextCheckoutStep(1);
-            checkoutPayment = null;
             document.getElementById('checkout-payment-status').textContent = '';
-            document.getElementById('checkout-submit').textContent = 'Pay & Place Order';
+            document.getElementById('checkout-submit').textContent = 'Place Cash Order';
             document.getElementById('checkout-modal').classList.add('open');
             toggleCart();
         }
@@ -1404,22 +1411,16 @@
             }
         }
 
-        function paymentIsComplete(result) {
-            const status = String(result?.status || result?.payment_status || result?.data?.status || '').toLowerCase();
-            return ['paid', 'complete', 'completed', 'success', 'succeeded'].some(value => status.includes(value));
-        }
-
         async function notifyCompletedOrder(result, address) {
-            if (!paymentIsComplete(result) && paymentMethod === 'card') return;
             try {
                 await notifyDiscord(CONFIG.DISCORD_ORDER_WEBHOOK, '', [{
-                    title: paymentMethod === 'cod' ? 'New cash-on-delivery order' : 'Card payment completed',
-                    color: paymentMethod === 'cod' ? 16744192 : 48863,
+                    title: 'New cash-on-delivery order',
+                    color: 16744192,
                     fields: [
                         { name: 'Customer', value: document.getElementById('co-name').value, inline: true },
                         { name: 'Email', value: userSession.email, inline: true },
                         { name: 'Phone', value: document.getElementById('co-phone').value, inline: true },
-                        { name: 'Payment', value: paymentMethod === 'cod' ? 'Cash on delivery' : 'Card paid', inline: true },
+                        { name: 'Payment', value: 'Cash on delivery', inline: true },
                         { name: 'Delivery area', value: CONFIG.DELIVERY_AREA, inline: true },
                         { name: 'Address', value: address },
                         { name: 'Total', value: document.getElementById('co-total').textContent, inline: true },
@@ -1438,45 +1439,44 @@
                 nextCheckoutStep(checkoutStep + 1);
                 return;
             }
-            const address = document.getElementById('co-address').value.trim();
-            if (!isDeliveryAddress(address)) {
+            const address = {
+                street: document.getElementById('co-street').value.trim(),
+                zone: document.getElementById('co-zone').value.trim(),
+                city: document.getElementById('co-city').value.trim(),
+                province: document.getElementById('co-province').value.trim(),
+                postal_code: document.getElementById('co-postal-code').value.trim(),
+                notes: document.getElementById('co-notes').value.trim()
+            };
+            const addressText = [address.street, address.zone, address.city, address.province, address.postal_code].filter(Boolean).join(', ');
+            if (!isDeliveryAddress(`${address.zone}, ${address.city}`)) {
                 alert('Direct delivery is currently available in Montana or Sinoville, Pretoria.');
                 return;
             }
             try {
                 const orderDetails = {
                     cart_id: cartId,
+                    items: cartData.items.map(item => ({
+                        product_id: item.product_id || item.productId || item.id,
+                        quantity: item.quantity
+                    })),
                     customer_name: document.getElementById('co-name').value,
                     customer_email: userSession.email,
                     customer_phone: document.getElementById('co-phone').value,
-                    shipping_address: address,
+                    shipping_address: addressText,
+                    address: addressText,
+                    street_address: address.street,
+                    suburb: address.zone,
+                    city: address.city,
+                    province: address.province,
+                    postal_code: address.postal_code,
+                    delivery_notes: address.notes,
                     delivery_area: CONFIG.DELIVERY_AREA,
-                    payment_method: paymentMethod,
+                    payment_method: 'cod',
+                    payment_status: 'pending',
                     discount_code: currentDiscount ? currentDiscount.code : null
                 };
-                let result;
-                if (paymentMethod === 'card') {
-                    result = checkoutPayment
-                        ? await api.completeCheckout({
-                            checkout_id: checkoutPayment.checkout_id || checkoutPayment.id,
-                            payment_id: checkoutPayment.payment_id || checkoutPayment.transaction_id
-                        })
-                        : await api.createCheckout(orderDetails);
-                    checkoutPayment = result.data || result;
-                    if (!paymentIsComplete(result)) {
-                        const paymentUrl = result.checkout_url || result.payment_url || result.data?.checkout_url || result.data?.payment_url;
-                        if (paymentUrl) window.open(paymentUrl, '_blank', 'noopener');
-                        document.getElementById('checkout-payment-status').textContent = paymentUrl
-                            ? 'Complete payment, then click Pay & Place Order again to confirm it.'
-                            : 'Card payment is not ready yet. Please try again or choose cash on delivery.';
-                        document.getElementById('checkout-submit').textContent = 'Confirm Card Payment';
-                        alert(paymentUrl ? 'Complete your card payment in the payment window, then return here.' : 'Card payment is not ready yet. Please try again or choose cash on delivery.');
-                        return;
-                    }
-                } else {
-                    result = await api.placeOrder(orderDetails);
-                }
-                await notifyCompletedOrder(result, address);
+                const result = await api.placeOrder(orderDetails);
+                await notifyCompletedOrder(result, addressText);
                 alert('Order placed! Check your email for confirmation.');
                 cartId = null; localStorage.removeItem('vm_cart_id');
                 cartData = { items: [], item_count: 0, subtotal: 0 };
